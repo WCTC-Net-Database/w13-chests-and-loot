@@ -60,4 +60,20 @@ public abstract class Item
     /// </summary>
     public int? ContainerId { get; set; }
     public virtual Container? Container { get; set; }
+
+    /// <summary>
+    /// Which equipment slot this item occupies when equipped. Null for items
+    /// that can't be equipped at all (Consumables, KeyItems).
+    ///
+    /// This is a derived property - it's computed from each subclass's own
+    /// data (Armor.Slot, Weapon hard-coded to Weapon) rather than stored in
+    /// its own database column. Marking it [NotMapped] tells EF Core to
+    /// ignore it, which means we don't need a schema migration to introduce
+    /// this concept.
+    ///
+    /// Used by Equipment.CanEquip() to prevent equipping two items in the
+    /// same slot. Subclasses override the getter; the base default is null.
+    /// </summary>
+    [NotMapped]
+    public virtual SlotType? EligibleSlot => null;
 }
