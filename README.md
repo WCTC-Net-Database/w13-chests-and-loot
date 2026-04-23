@@ -48,6 +48,26 @@ By completing this assignment, you will:
 
 ---
 
+## Warm-Up: Equipment Earns Its First Rule
+
+Before we get to chests, look at `Models/Containers/Equipment.cs`. Last week it was an empty shell — a Container subclass that did nothing special. This week it gets its first invariant:
+
+```csharp
+public bool CanEquip(Item item)
+{
+    if (item.EligibleSlot == null) return false;
+    return !Items.Any(existing => existing.EligibleSlot == item.EligibleSlot);
+}
+```
+
+Two new pieces support this:
+- A `SlotType` enum (Head, Body, Hands, Weapon, Shield, ...) — enum instead of string gives compile-time safety
+- A virtual `Item.EligibleSlot` property that Weapon and Armor override, defaulting to `null` on items that can't be equipped (Consumables, KeyItems)
+
+No migration needed — `EligibleSlot` is `[NotMapped]` and derived from existing data. This is the **smallest possible example** of the week's big idea: a Container subclass enforcing a rule its base doesn't know about. Chest and MonsterLoot are the same idea at larger scale.
+
+---
+
 ## The Big Idea: Open/Closed Principle in Action
 
 Last week you built `Container` as an abstract base class with `Inventory` and `Equipment` subclasses. This week, adding chests and monster loot is essentially a **five-line change** to `GameContext.OnModelCreating`:
@@ -116,14 +136,15 @@ W13-assignment-template.sln
     │   ├── Containers/
     │   │   ├── IItemContainer.cs         # From W12
     │   │   ├── ILockable.cs              # NEW: Lock/trap/pick contract
+    │   │   ├── SlotType.cs               # NEW: Equipment slot enum (warm-up example)
     │   │   ├── Container.cs              # From W12
     │   │   ├── Inventory.cs              # From W12
-    │   │   ├── Equipment.cs              # From W12
+    │   │   ├── Equipment.cs              # Extended: CanEquip() slot rule (warm-up)
     │   │   ├── Chest.cs                  # NEW: Container + ILockable
     │   │   ├── MonsterLoot.cs            # NEW: Container
-    │   │   ├── Item.cs                   # From W12
-    │   │   ├── Weapon.cs                 # From W12
-    │   │   ├── Armor.cs                  # From W12
+    │   │   ├── Item.cs                   # Extended: EligibleSlot NotMapped property
+    │   │   ├── Weapon.cs                 # Extended: EligibleSlot => SlotType.Weapon
+    │   │   ├── Armor.cs                  # Extended: EligibleSlot parses Slot string
     │   │   ├── Consumable.cs             # From W12
     │   │   └── KeyItem.cs                # From W12
     │   └── Abilities/
