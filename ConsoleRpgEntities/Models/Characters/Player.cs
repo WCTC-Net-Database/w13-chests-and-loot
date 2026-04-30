@@ -113,7 +113,9 @@ public class Player : ITargetable, IPlayer
     }
 
     /// <summary>
-    /// Moves an item from inventory into an equipment slot.
+    /// Moves an item from inventory into the matching equipment slot.
+    /// Looks up the slot via <see cref="Item.EligibleSlot"/>; refuses if
+    /// the slot is missing, already filled, or the item isn't equippable.
     /// </summary>
     public void Equip(Item item)
     {
@@ -125,19 +127,34 @@ public class Player : ITargetable, IPlayer
             return;
         }
 
-        if (item is not Weapon && item is not Armor)
+        if (item.EligibleSlot == null)
         {
             Console.WriteLine($"{item.Name} can't be equipped.");
             return;
         }
 
+        var slot = Equipment.EquipmentSlots.FirstOrDefault(s => s.SlotType == item.EligibleSlot);
+        if (slot == null)
+        {
+            Console.WriteLine($"You have no {item.EligibleSlot} slot.");
+            return;
+        }
+
+        if (slot.EquippedItem != null)
+        {
+            Console.WriteLine($"Your {item.EligibleSlot} slot already holds {slot.EquippedItem.Name}.");
+            return;
+        }
+
         Inventory.RemoveItem(item);
-        Equipment.AddItem(item);
+        Equipment.AddItem(item);          // also sets ContainerId so Equipment.Items still works
+        slot.EquippedItem = item;
         Console.WriteLine($"{Name} equipped {item.Name}.");
     }
 
     /// <summary>
-    /// Moves an item from an equipment slot back into the inventory.
+    /// Moves an item from an equipment slot back into the inventory and
+    /// clears the slot.
     /// </summary>
     public void Unequip(Item item)
     {
@@ -148,6 +165,9 @@ public class Player : ITargetable, IPlayer
             Console.WriteLine($"{item.Name} isn't equipped.");
             return;
         }
+
+        var slot = Equipment.EquipmentSlots.FirstOrDefault(s => s.EquippedItemId == item.Id);
+        if (slot != null) slot.EquippedItem = null;
 
         Equipment.RemoveItem(item);
         Inventory.AddItem(item);

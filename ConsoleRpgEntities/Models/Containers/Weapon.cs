@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace ConsoleRpgEntities.Models.Containers;
 
 /// <summary>
@@ -15,10 +13,4 @@ public class Weapon : Item
     /// Kept as a simple string for now - extend with an enum later if needed.
     /// </summary>
     public string Category { get; set; } = "Melee";
-
-    /// <summary>
-    /// Every weapon goes in the Weapon slot. No per-instance override needed.
-    /// </summary>
-    [NotMapped]
-    public override SlotType? EligibleSlot => SlotType.Weapon;
 }
