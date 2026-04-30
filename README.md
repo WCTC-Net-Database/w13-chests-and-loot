@@ -50,21 +50,25 @@ By completing this assignment, you will:
 
 ## Warm-Up: Equipment Earns Its First Rule
 
-Before we get to chests, look at `Models/Containers/Equipment.cs`. Last week it was an empty shell — a Container subclass that did nothing special. This week it gets its first invariant:
+Before we get to chests, look at `Models/Containers/Equipment.cs`. Last week it was an empty shell — a Container subclass that did nothing special. This week it grows up: it owns a fixed set of **`EquipmentSlot`** rows, and equipping an item means finding the matching slot and refusing if it's already filled.
+
+Three new pieces support this:
+- A **`SlotType`** enum (Head, Body, Hands, Weapon, Shield, ...) — typed instead of string for compile-time safety.
+- An **`EquipmentSlot`** entity — one row per slot per character, with an `EquippedItem` FK that's null when the slot is empty.
+- An **`Item.EligibleSlot`** column (`SlotType?`) that says which slot each instance can go in. Set per-instance in seed data; null for items that can't be equipped (Consumables, KeyItems).
+
+The equip logic in `Player.Equip` then becomes a clean lookup:
 
 ```csharp
-public bool CanEquip(Item item)
-{
-    if (item.EligibleSlot == null) return false;
-    return !Items.Any(existing => existing.EligibleSlot == item.EligibleSlot);
-}
+var slot = Equipment.EquipmentSlots.FirstOrDefault(s => s.SlotType == item.EligibleSlot);
+if (slot == null)            { /* no such slot on this character */ }
+if (slot.EquippedItem != null) { /* slot already filled */ }
+// otherwise: place the item AND set slot.EquippedItem
 ```
 
-Two new pieces support this:
-- A `SlotType` enum (Head, Body, Hands, Weapon, Shield, ...) — enum instead of string gives compile-time safety
-- A virtual `Item.EligibleSlot` property that Weapon and Armor override, defaulting to `null` on items that can't be equipped (Consumables, KeyItems)
+This is the **smallest example** of the week's bigger theme: a Container subclass enforcing a rule its base doesn't know about. Chest and MonsterLoot are the same idea at larger scale.
 
-No migration needed — `EligibleSlot` is `[NotMapped]` and derived from existing data. This is the **smallest possible example** of the week's big idea: a Container subclass enforcing a rule its base doesn't know about. Chest and MonsterLoot are the same idea at larger scale.
+**Migration:** the schema change lives in `AddEquipmentSlots`. It adds the `EligibleSlot` column to Items, copies data from the legacy `Armor.Slot` string, drops the old string column, creates the `EquipmentSlots` table, and seeds nine empty slots for every existing Equipment container. Read it for an example of a non-trivial data-preserving migration.
 
 ---
 
@@ -136,15 +140,16 @@ W13-assignment-template.sln
     │   ├── Containers/
     │   │   ├── IItemContainer.cs         # From W12
     │   │   ├── ILockable.cs              # NEW: Lock/trap/pick contract
-    │   │   ├── SlotType.cs               # NEW: Equipment slot enum (warm-up example)
+    │   │   ├── SlotType.cs               # NEW: Equipment slot enum
+    │   │   ├── EquipmentSlot.cs          # NEW: Slot entity (one row per slot per character)
     │   │   ├── Container.cs              # From W12
     │   │   ├── Inventory.cs              # From W12
-    │   │   ├── Equipment.cs              # Extended: CanEquip() slot rule (warm-up)
+    │   │   ├── Equipment.cs              # Extended: EquipmentSlots collection
     │   │   ├── Chest.cs                  # NEW: Container + ILockable
     │   │   ├── MonsterLoot.cs            # NEW: Container
-    │   │   ├── Item.cs                   # Extended: EligibleSlot NotMapped property
-    │   │   ├── Weapon.cs                 # Extended: EligibleSlot => SlotType.Weapon
-    │   │   ├── Armor.cs                  # Extended: EligibleSlot parses Slot string
+    │   │   ├── Item.cs                   # Extended: EligibleSlot column (SlotType?)
+    │   │   ├── Weapon.cs                 # From W12 (no slot-specific code needed)
+    │   │   ├── Armor.cs                  # Slot string removed; uses Item.EligibleSlot
     │   │   ├── Consumable.cs             # From W12
     │   │   └── KeyItem.cs                # From W12
     │   └── Abilities/
@@ -157,6 +162,7 @@ W13-assignment-template.sln
         ├── 20260410183100_SeedInitialData.cs
         ├── 20260410192228_AddChestsAndMonsterLoot.cs    # NEW schema migration
         ├── 20260410192408_SeedWorldContent.cs           # NEW seed data migration
+        ├── 20260430155333_AddEquipmentSlots.cs          # NEW slot-system migration
         └── Scripts/
             ├── SeedInitialData.sql              # From W12
             ├── SeedInitialData.rollback.sql     # From W12
@@ -176,10 +182,11 @@ From the solution directory:
 dotnet ef database update --project ConsoleRpgEntities --startup-project ConsoleRpg
 ```
 
-This applies **two new migrations** on top of your W12 database:
+This applies **three new migrations** on top of your W12 database:
 
 1. **`AddChestsAndMonsterLoot`** — adds new columns to the `Containers` table (Description, IsLocked, IsTrapped, IsPickable, RequiredKeyId, TrapDamage, TrapDisarmed) and new columns to `Monsters` (LootId, IsLooted). Note: no existing columns change — that's the TPH additive pattern.
 2. **`SeedWorldContent`** — runs `Migrations/Scripts/SeedWorldContent.sql` to place three chests in the world and attach a loot container to Grubnak the goblin.
+3. **`AddEquipmentSlots`** — adds the `EligibleSlot` column to Items, copies values from the legacy `Armor.Slot` string, drops the old column, creates the `EquipmentSlots` table, and seeds nine empty slots for every existing Equipment container. See `Migrations/20260430155333_AddEquipmentSlots.cs` for a worked example of an order-sensitive migration: add → copy → drop.
 
 > **Tip:** after running, open SQL Server Object Explorer and SELECT * FROM Containers. You'll see Inventory/Equipment rows from W12 mixed with Chest/MonsterLoot rows. All in one table. That's TPH.
 
